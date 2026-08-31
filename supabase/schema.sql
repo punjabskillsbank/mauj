@@ -293,3 +293,31 @@ insert into public.tasks (title, type, is_active) values
 -- -----------------------------------------------------------------------------
 alter publication supabase_realtime add table public.profiles;
 alter publication supabase_realtime add table public.daily_logs;
+
+-- -----------------------------------------------------------------------------
+-- 8. PRE-SIGNUP INVITATION CHECK (anon-callable)
+-- Supabase Auth wraps ANY error thrown by handle_new_user() in a generic
+-- "Database error saving new user" message on the client, for security —
+-- it never leaks our raw RAISE EXCEPTION text to the app. That trigger is
+-- still the real enforcement (a client can't bypass it), but it makes for
+-- a bad error message. This function lets the Sign Up screen check
+-- *before* attempting signup, so it can show a friendly message instead.
+--
+-- It's callable by the "anon" role (logged-out users) since that's exactly
+-- who's filling out the Sign Up form. It only returns a boolean — never the
+-- underlying rows — so it can't be used to enumerate every invited email.
+-- -----------------------------------------------------------------------------
+create or replace function public.check_pending_invitation(check_email text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.invitations
+    where email = check_email and status = 'pending'
+  );
+$$;
+
+grant execute on function public.check_pending_invitation(text) to anon, authenticated;
