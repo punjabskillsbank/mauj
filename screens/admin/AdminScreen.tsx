@@ -1,27 +1,80 @@
-import React from 'react';
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import StudentManagementTab from './tabs/StudentManagementTab';
+import HabitManagementTab from './tabs/HabitManagementTab';
+import RealtimeDashboardTab from './tabs/RealtimeDashboardTab';
+
+type TabKey = 'students' | 'habits' | 'dashboard';
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'students', label: 'Students' },
+  { key: 'habits', label: 'Habits' },
+  { key: 'dashboard', label: 'Dashboard' },
+];
 
 export default function AdminScreen() {
   const { profile, signOut } = useAuth();
+  const [activeTab, setActiveTab] = useState<TabKey>('students');
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Welcome, {profile?.first_name}!</Text>
-      <Text style={styles.subtitle}>
-        Student Management, Habit Management, and the Real-time Dashboard will show up here next.
-      </Text>
-      <TouchableOpacity style={styles.button} onPress={signOut}>
-        <Text style={styles.buttonText}>Sign Out</Text>
-      </TouchableOpacity>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>Mauj Admin</Text>
+          <Text style={styles.headerSubtitle}>
+            {profile?.first_name} {profile?.last_name}
+          </Text>
+        </View>
+        <TouchableOpacity onPress={signOut}>
+          <Text style={styles.signOut}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.content}>
+        {activeTab === 'students' && <StudentManagementTab />}
+        {activeTab === 'habits' && <HabitManagementTab />}
+        {activeTab === 'dashboard' && <RealtimeDashboardTab />}
+      </View>
+
+      <View style={styles.tabBar}>
+        {TABS.map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            style={styles.tabButton}
+            onPress={() => setActiveTab(tab.key)}
+          >
+            <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', padding: 24 },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 8 },
-  subtitle: { color: '#666', marginBottom: 24, textAlign: 'center' },
-  button: { backgroundColor: '#dc2626', borderRadius: 8, padding: 14, paddingHorizontal: 24 },
-  buttonText: { color: '#fff', fontWeight: '600' },
+  container: { flex: 1, backgroundColor: '#fff' },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  headerTitle: { fontSize: 18, fontWeight: '700' },
+  headerSubtitle: { fontSize: 13, color: '#666' },
+  signOut: { color: '#dc2626', fontWeight: '600' },
+  content: { flex: 1 },
+  tabBar: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  tabButton: { flex: 1, padding: 14, alignItems: 'center' },
+  tabLabel: { color: '#999', fontWeight: '600' },
+  tabLabelActive: { color: '#4f46e5' },
 });

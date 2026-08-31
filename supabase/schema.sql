@@ -293,6 +293,7 @@ insert into public.tasks (title, type, is_active) values
 -- -----------------------------------------------------------------------------
 alter publication supabase_realtime add table public.profiles;
 alter publication supabase_realtime add table public.daily_logs;
+alter publication supabase_realtime add table public.invitations;
 
 -- -----------------------------------------------------------------------------
 -- 8. PRE-SIGNUP INVITATION CHECK (anon-callable)

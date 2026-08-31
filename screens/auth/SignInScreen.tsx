@@ -38,7 +38,7 @@ export default function SignInScreen({ navigation }: Props) {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <Text style={styles.title}>Mauj</Text>
       <Text style={styles.subtitle}>Sign in to continue</Text>
