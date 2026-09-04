@@ -1,250 +1,60 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
-import type { Task } from '../../types/database';
-import { getFriendlyDateLabel, getLocalDateString } from '../../utils/date';
+import { getFriendlyDateLabel } from '../../utils/date';
+import TodayTab from './tabs/TodayTab';
+import HistoryTab from './tabs/HistoryTab';
 
-interface LogRow {
-  task: Task;
-  completed: boolean;
-  durationText: string;
-  saving: boolean;
-  justSaved: boolean;
-}
+type TabKey = 'today' | 'history';
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'history', label: 'History' },
+];
 
 export default function StudentScreen() {
   const { profile, signOut } = useAuth();
-  const [rows, setRows] = useState<LogRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const today = getLocalDateString();
-
-  const loadTasksAndLogs = useCallback(async () => {
-    if (!profile) return;
-    setError(null);
-
-    const [tasksResult, logsResult] = await Promise.all([
-      supabase.from('tasks').select('*').eq('is_active', true).order('created_at', { ascending: true }),
-      supabase.from('daily_logs').select('*').eq('student_id', profile.id).eq('date', today),
-    ]);
-
-    if (tasksResult.error) {
-      setError(tasksResult.error.message);
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
-
-    const tasks = (tasksResult.data ?? []) as Task[];
-    const logs = logsResult.data ?? [];
-
-    setRows(
-      tasks.map((task) => {
-        const existingLog = logs.find((log) => log.task_id === task.id);
-        return {
-          task,
-          completed: existingLog?.completed ?? false,
-          durationText:
-            existingLog?.duration_minutes != null ? String(existingLog.duration_minutes) : '',
-          saving: false,
-          justSaved: false,
-        };
-      })
-    );
-    setLoading(false);
-    setRefreshing(false);
-  }, [profile, today]);
-
-  useEffect(() => {
-    loadTasksAndLogs();
-  }, [loadTasksAndLogs]);
-
-  const flashSaved = (taskId: string) => {
-    setRows((prev) => prev.map((r) => (r.task.id === taskId ? { ...r, justSaved: true } : r)));
-    setTimeout(() => {
-      setRows((prev) => prev.map((r) => (r.task.id === taskId ? { ...r, justSaved: false } : r)));
-    }, 1200);
-  };
-
-  const handleToggleBoolean = async (taskId: string, value: boolean) => {
-    if (!profile) return;
-
-    setRows((prev) =>
-      prev.map((r) => (r.task.id === taskId ? { ...r, completed: value, saving: true } : r))
-    );
-
-    // upsert = "insert, or update if a row already matches" — here that
-    // match is the (student_id, task_id, date) unique constraint we added
-    // to daily_logs in schema.sql, so each task gets exactly one row per day.
-    const { error: upsertError } = await supabase
-      .from('daily_logs')
-      .upsert(
-        { student_id: profile.id, task_id: taskId, date: today, completed: value },
-        { onConflict: 'student_id,task_id,date' }
-      );
-
-    setRows((prev) =>
-      prev.map((r) => (r.task.id === taskId ? { ...r, saving: false } : r))
-    );
-
-    if (upsertError) {
-      setError(upsertError.message);
-      // Revert on failure so the UI doesn't show a save that didn't happen.
-      setRows((prev) =>
-        prev.map((r) => (r.task.id === taskId ? { ...r, completed: !value } : r))
-      );
-    } else {
-      flashSaved(taskId);
-    }
-  };
-
-  const handleDurationChange = (taskId: string, text: string) => {
-    // Only allow digits, so the field can't end up with something the
-    // "int" column in Postgres would reject.
-    const numeric = text.replace(/[^0-9]/g, '');
-    setRows((prev) =>
-      prev.map((r) => (r.task.id === taskId ? { ...r, durationText: numeric } : r))
-    );
-  };
-
-  const handleSaveDuration = async (taskId: string) => {
-    if (!profile) return;
-    const row = rows.find((r) => r.task.id === taskId);
-    if (!row) return;
-
-    const minutes = parseInt(row.durationText, 10);
-    const safeMinutes = Number.isNaN(minutes) ? 0 : minutes;
-
-    setRows((prev) => prev.map((r) => (r.task.id === taskId ? { ...r, saving: true } : r)));
-
-    const { error: upsertError } = await supabase
-      .from('daily_logs')
-      .upsert(
-        {
-          student_id: profile.id,
-          task_id: taskId,
-          date: today,
-          duration_minutes: safeMinutes,
-          completed: safeMinutes > 0,
-        },
-        { onConflict: 'student_id,task_id,date' }
-      );
-
-    setRows((prev) =>
-      prev.map((r) =>
-        r.task.id === taskId
-          ? { ...r, saving: false, completed: safeMinutes > 0, durationText: String(safeMinutes) }
-          : r
-      )
-    );
-
-    if (upsertError) {
-      setError(upsertError.message);
-    } else {
-      flashSaved(taskId);
-    }
-  };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#4f46e5" />
-      </SafeAreaView>
-    );
-  }
+  const [activeTab, setActiveTab] = useState<TabKey>('today');
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Hi, {profile?.first_name}!</Text>
-          <Text style={styles.headerSubtitle}>{getFriendlyDateLabel()}</Text>
+          <Text style={styles.headerSubtitle}>
+            {activeTab === 'today' ? getFriendlyDateLabel() : 'Your progress so far'}
+          </Text>
         </View>
         <TouchableOpacity onPress={signOut}>
           <Text style={styles.signOut}>Sign Out</Text>
         </TouchableOpacity>
       </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <View style={styles.content}>
+        {activeTab === 'today' && <TodayTab />}
+        {activeTab === 'history' && <HistoryTab />}
+      </View>
 
-      <FlatList
-        data={rows}
-        keyExtractor={(item) => item.task.id}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              loadTasksAndLogs();
-            }}
-          />
-        }
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No active habits yet. Check back once your admin adds some.</Text>
-        }
-        renderItem={({ item }) => (
-          <View style={styles.row}>
-            <View style={styles.rowHeader}>
-              <Text style={styles.rowTitle}>{item.task.title}</Text>
-              {item.saving ? (
-                <ActivityIndicator size="small" color="#4f46e5" />
-              ) : item.justSaved ? (
-                <Text style={styles.savedText}>Saved</Text>
-              ) : null}
-            </View>
-
-            {item.task.type === 'boolean' ? (
-              <View style={styles.booleanRow}>
-                <Text style={styles.booleanLabel}>{item.completed ? 'Done' : 'Not done'}</Text>
-                <Switch
-                  value={item.completed}
-                  onValueChange={(value) => handleToggleBoolean(item.task.id, value)}
-                  trackColor={{ true: '#4f46e5' }}
-                />
-              </View>
-            ) : (
-              <View style={styles.durationRow}>
-                <TextInput
-                  style={styles.durationInput}
-                  placeholder="0"
-                  keyboardType="number-pad"
-                  value={item.durationText}
-                  onChangeText={(text) => handleDurationChange(item.task.id, text)}
-                />
-                <Text style={styles.durationUnit}>minutes</Text>
-                <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={() => handleSaveDuration(item.task.id)}
-                >
-                  <Text style={styles.saveButtonText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
-      />
+      <View style={styles.tabBar}>
+        {TABS.map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            style={styles.tabButton}
+            onPress={() => setActiveTab(tab.key)}
+          >
+            <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -256,44 +66,13 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700' },
   headerSubtitle: { fontSize: 13, color: '#666', marginTop: 2 },
   signOut: { color: '#dc2626', fontWeight: '600' },
-  error: { color: '#dc2626', textAlign: 'center', padding: 8 },
-  listContent: { padding: 16 },
-  emptyText: { textAlign: 'center', color: '#999', marginTop: 40 },
-  row: {
-    borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  rowHeader: {
+  content: { flex: 1 },
+  tabBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
   },
-  rowTitle: { fontSize: 16, fontWeight: '600', flex: 1, marginRight: 8 },
-  savedText: { color: '#059669', fontSize: 13, fontWeight: '600' },
-  booleanRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  booleanLabel: { fontSize: 14, color: '#666' },
-  durationRow: { flexDirection: 'row', alignItems: 'center' },
-  durationInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 10,
-    width: 70,
-    fontSize: 16,
-    textAlign: 'center',
-    marginRight: 8,
-  },
-  durationUnit: { color: '#666', marginRight: 12 },
-  saveButton: {
-    backgroundColor: '#4f46e5',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginLeft: 'auto',
-  },
-  saveButtonText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  tabButton: { flex: 1, padding: 14, alignItems: 'center' },
+  tabLabel: { color: '#999', fontWeight: '600' },
+  tabLabelActive: { color: '#4f46e5' },
 });

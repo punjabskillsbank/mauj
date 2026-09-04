@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
-import StudentManagementTab from './tabs/StudentManagementTab';
+import AdminStudentsStack from '../../navigation/AdminStudentsStack';
 import HabitManagementTab from './tabs/HabitManagementTab';
 import RealtimeDashboardTab from './tabs/RealtimeDashboardTab';
 
@@ -33,7 +33,7 @@ export default function AdminScreen() {
       </View>
 
       <View style={styles.content}>
-        {activeTab === 'students' && <StudentManagementTab />}
+        {activeTab === 'students' && <AdminStudentsStack />}
         {activeTab === 'habits' && <HabitManagementTab />}
         {activeTab === 'dashboard' && <RealtimeDashboardTab />}
       </View>

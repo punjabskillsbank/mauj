@@ -9,18 +9,25 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../contexts/AuthContext';
+import type { AdminStudentsStackParamList } from '../../../navigation/AdminStudentsStack';
 import type { Invitation, Profile } from '../../../types/database';
 
-export default function StudentManagementTab() {
+type Props = NativeStackScreenProps<AdminStudentsStackParamList, 'StudentList'>;
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export default function StudentManagementTab({ navigation }: Props) {
   const { profile } = useAuth();
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [students, setStudents] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [email, setEmail] = useState('');
+  const [emailsText, setEmailsText] = useState('');
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSummary, setInviteSummary] = useState<string | null>(null);
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -57,39 +64,75 @@ export default function StudentManagementTab() {
     };
   }, [loadData]);
 
-  const handleInvite = async () => {
+  const handleBulkInvite = async () => {
     setInviteError(null);
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed) {
-      setInviteError('Enter an email address.');
-      return;
-    }
+    setInviteSummary(null);
     if (!profile) return;
 
+    // Split on newlines (and commas, in case someone pastes a
+    // comma-separated list instead of one-per-line), trim, lowercase, and
+    // drop blank lines.
+    const rawEmails = emailsText
+      .split(/[\n,]/)
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e.length > 0);
+
+    if (rawEmails.length === 0) {
+      setInviteError('Enter at least one email address.');
+      return;
+    }
+
+    const uniqueEmails = Array.from(new Set(rawEmails));
+    const validEmails = uniqueEmails.filter((e) => EMAIL_REGEX.test(e));
+    const invalidEmails = uniqueEmails.filter((e) => !EMAIL_REGEX.test(e));
+
+    if (validEmails.length === 0) {
+      setInviteError('None of the entered emails look valid.');
+      return;
+    }
+
     setInviteSubmitting(true);
-    const { error } = await supabase.from('invitations').insert({
-      email: trimmed,
-      invited_by: profile.id,
-    });
+
+    // Upsert with ignoreDuplicates so one already-invited email doesn't
+    // block the rest of the batch: Postgres generates
+    // "ON CONFLICT (email) DO NOTHING", which just skips conflicting rows
+    // instead of rejecting the whole insert like a plain .insert() would.
+    const { data: insertedRows, error } = await supabase
+      .from('invitations')
+      .upsert(
+        validEmails.map((invitedEmail) => ({ email: invitedEmail, invited_by: profile.id })),
+        { onConflict: 'email', ignoreDuplicates: true }
+      )
+      .select();
+
     setInviteSubmitting(false);
 
     if (error) {
-      // Postgres error code 23505 = unique_violation, thrown by our
-      // `email text unique` constraint on the invitations table.
-      setInviteError(
-        error.code === '23505' ? 'This email has already been invited.' : error.message
-      );
+      setInviteError(error.message);
       return;
     }
 
-    setEmail('');
+    const insertedEmails = new Set((insertedRows ?? []).map((row) => row.email as string));
+    const alreadyInvited = validEmails.filter((e) => !insertedEmails.has(e));
+
+    const summaryParts: string[] = [];
+    if (insertedEmails.size > 0) {
+      summaryParts.push(
+        `Invited ${insertedEmails.size} new student${insertedEmails.size === 1 ? '' : 's'}.`
+      );
+    }
+    if (alreadyInvited.length > 0) {
+      summaryParts.push(`Already invited: ${alreadyInvited.join(', ')}.`);
+    }
+    if (invalidEmails.length > 0) {
+      summaryParts.push(`Skipped invalid: ${invalidEmails.join(', ')}.`);
+    }
+    setInviteSummary(summaryParts.join(' '));
+    setEmailsText('');
     loadData();
   };
 
-  const getStudentName = (inviteEmail: string) => {
-    const match = students.find((s) => s.email === inviteEmail);
-    return match ? `${match.first_name} ${match.last_name}` : null;
-  };
+  const getStudentProfile = (inviteEmail: string) => students.find((s) => s.email === inviteEmail);
 
   if (loading) {
     return (
@@ -101,16 +144,24 @@ export default function StudentManagementTab() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.inviteRow}>
+      <View style={styles.inviteSection}>
+        <Text style={styles.inviteLabel}>Invite students</Text>
         <TextInput
-          style={styles.input}
-          placeholder="student@example.com"
+          style={styles.textArea}
+          placeholder={'One email per line, e.g.\njane@example.com\njohn@example.com'}
           autoCapitalize="none"
           keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+          value={emailsText}
+          onChangeText={setEmailsText}
         />
-        <TouchableOpacity style={styles.inviteButton} onPress={handleInvite} disabled={inviteSubmitting}>
+        <TouchableOpacity
+          style={styles.inviteButton}
+          onPress={handleBulkInvite}
+          disabled={inviteSubmitting}
+        >
           {inviteSubmitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
@@ -119,6 +170,7 @@ export default function StudentManagementTab() {
         </TouchableOpacity>
       </View>
       {inviteError ? <Text style={styles.error}>{inviteError}</Text> : null}
+      {inviteSummary ? <Text style={styles.summary}>{inviteSummary}</Text> : null}
 
       <FlatList
         data={invitations}
@@ -135,9 +187,22 @@ export default function StudentManagementTab() {
         }
         ListEmptyComponent={<Text style={styles.emptyText}>No invitations yet.</Text>}
         renderItem={({ item }) => {
-          const name = item.status === 'registered' ? getStudentName(item.email) : null;
+          const studentProfile =
+            item.status === 'registered' ? getStudentProfile(item.email) : undefined;
+          const name = studentProfile ? `${studentProfile.first_name} ${studentProfile.last_name}` : null;
+
           return (
-            <View style={styles.row}>
+            <TouchableOpacity
+              style={styles.row}
+              disabled={!studentProfile}
+              onPress={() =>
+                studentProfile &&
+                navigation.navigate('StudentDetail', {
+                  studentId: studentProfile.id,
+                  studentName: name ?? studentProfile.email,
+                })
+              }
+            >
               <View style={styles.rowInfo}>
                 <Text style={styles.rowEmail}>{item.email}</Text>
                 {name ? <Text style={styles.rowName}>{name}</Text> : null}
@@ -152,7 +217,7 @@ export default function StudentManagementTab() {
                   {item.status === 'registered' ? 'Registered' : 'Pending'}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         }}
       />
@@ -163,24 +228,26 @@ export default function StudentManagementTab() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  inviteRow: { flexDirection: 'row', marginBottom: 8 },
-  input: {
-    flex: 1,
+  inviteSection: { marginBottom: 8 },
+  inviteLabel: { fontSize: 13, fontWeight: '700', color: '#333', marginBottom: 6 },
+  textArea: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
-    marginRight: 8,
+    marginBottom: 8,
     fontSize: 15,
+    minHeight: 90,
   },
   inviteButton: {
     backgroundColor: '#4f46e5',
     borderRadius: 8,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
+    paddingVertical: 12,
+    alignItems: 'center',
   },
   inviteButtonText: { color: '#fff', fontWeight: '600' },
   error: { color: '#dc2626', marginBottom: 8 },
+  summary: { color: '#059669', marginBottom: 8 },
   listContent: { paddingTop: 8, paddingBottom: 24 },
   emptyText: { textAlign: 'center', color: '#999', marginTop: 40 },
   row: {
