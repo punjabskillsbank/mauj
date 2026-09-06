@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Task } from '../types/database';
 import type { LogWithTask } from '../utils/stats';
 import { buildDateRange, getCellState } from '../utils/matrix';
@@ -8,6 +8,11 @@ import { getLocalDateString } from '../utils/date';
 interface Props {
   tasks: Task[];
   logs: LogWithTask[];
+  // Optional — when provided, row labels become tappable (used by the
+  // Admin's per-student detail screen to drill into a single habit's
+  // stats). The Student's own History tab omits this, so labels there
+  // stay plain, non-interactive text.
+  onPressTask?: (task: Task) => void;
 }
 
 const CELL_SIZE = 36;
@@ -29,7 +34,7 @@ function formatColumnHeader(dateStr: string): { weekday: string; day: string } {
 // horizontally scrollable columns on the right, docked to "today" by
 // default. Used identically by the Student's own History tab and the
 // Admin's per-student detail screen.
-export default function HabitMatrix({ tasks, logs }: Props) {
+export default function HabitMatrix({ tasks, logs, onPressTask }: Props) {
   const scrollRef = useRef<ScrollView>(null);
 
   if (tasks.length === 0) {
@@ -57,13 +62,22 @@ export default function HabitMatrix({ tasks, logs }: Props) {
             scroll below, so habit names stay put while dates scroll. */}
         <View style={styles.labelColumn}>
           <View style={styles.headerSpacer} />
-          {tasks.map((task) => (
-            <View key={task.id} style={styles.labelCell}>
+          {tasks.map((task) => {
+            const label = (
               <Text style={styles.labelText} numberOfLines={1}>
                 {task.title}
               </Text>
-            </View>
-          ))}
+            );
+            return (
+              <View key={task.id} style={styles.labelCell}>
+                {onPressTask ? (
+                  <TouchableOpacity onPress={() => onPressTask(task)}>{label}</TouchableOpacity>
+                ) : (
+                  label
+                )}
+              </View>
+            );
+          })}
         </View>
 
         <ScrollView
@@ -94,12 +108,7 @@ export default function HabitMatrix({ tasks, logs }: Props) {
                   return (
                     <View
                       key={date}
-                      style={[
-                        styles.cell,
-                        state === 'done' && styles.cellDone,
-                        state === 'missed' && styles.cellMissed,
-                        state === 'none' && styles.cellNone,
-                      ]}
+                      style={[styles.cell, state === 'done' ? styles.cellDone : styles.cellMissed]}
                     />
                   );
                 })}
@@ -117,10 +126,6 @@ export default function HabitMatrix({ tasks, logs }: Props) {
         <View style={styles.legendItem}>
           <View style={[styles.legendSwatch, styles.cellMissed]} />
           <Text style={styles.legendText}>Missed</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendSwatch, styles.cellNone]} />
-          <Text style={styles.legendText}>No data</Text>
         </View>
       </View>
     </View>
@@ -160,7 +165,6 @@ const styles = StyleSheet.create({
   },
   cellDone: { backgroundColor: '#059669' },
   cellMissed: { backgroundColor: '#e5e7eb' },
-  cellNone: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#f0f0f0' },
   legend: { flexDirection: 'row', marginTop: 16, justifyContent: 'center' },
   legendItem: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 10 },
   legendSwatch: { width: 14, height: 14, borderRadius: 4, marginRight: 6 },

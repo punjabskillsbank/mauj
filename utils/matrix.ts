@@ -2,7 +2,7 @@ import type { Task } from '../types/database';
 import type { LogWithTask } from './stats';
 import { getLocalDateString } from './date';
 
-export type CellState = 'done' | 'missed' | 'none';
+export type CellState = 'done' | 'missed';
 
 // Inclusive array of "YYYY-MM-DD" strings from startDate through endDate,
 // oldest first — this becomes the column order for the matrix (past on the
@@ -41,7 +41,9 @@ export function getRelevantTasks(activeTasks: Task[], logs: LogWithTask[]): Task
 
 export function getCellState(logs: LogWithTask[], taskId: string, date: string): CellState {
   const log = logs.find((l) => l.task_id === taskId && l.date === date);
-  if (!log) return 'none';
+  // No log row at all counts as missed — habits are strictly binary
+  // (done/missed), with no separate "no data" state.
+  if (!log) return 'missed';
 
   // `completed` is already the right signal for both task types — the
   // Today/History save logic sets it to `duration_minutes > 0` for

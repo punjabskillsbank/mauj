@@ -2,10 +2,21 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import StudentManagementTab from '../screens/admin/tabs/StudentManagementTab';
 import StudentDetailScreen from '../screens/admin/tabs/StudentDetailScreen';
+import HabitDetailScreen from '../screens/admin/tabs/HabitDetailScreen';
+import type { TaskType } from '../types/database';
 
 export type AdminStudentsStackParamList = {
   StudentList: undefined;
   StudentDetail: { studentId: string; studentName: string };
+  HabitDetail: {
+    studentId: string;
+    studentName: string;
+    taskId: string;
+    taskTitle: string;
+    taskType: TaskType;
+    taskCreatedAt: string;
+    studentJoinedAt: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<AdminStudentsStackParamList>();
@@ -25,6 +36,11 @@ export default function AdminStudentsStack() {
         name="StudentDetail"
         component={StudentDetailScreen}
         options={({ route }) => ({ headerShown: true, title: route.params.studentName })}
+      />
+      <Stack.Screen
+        name="HabitDetail"
+        component={HabitDetailScreen}
+        options={({ route }) => ({ headerShown: true, title: route.params.taskTitle })}
       />
     </Stack.Navigator>
   );

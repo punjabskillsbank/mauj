@@ -29,6 +29,7 @@ export default function StudentManagementTab({ navigation }: Props) {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSummary, setInviteSummary] = useState<string | null>(null);
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadData = useCallback(async () => {
     const [invitationsResult, studentsResult] = await Promise.all([
@@ -134,6 +135,16 @@ export default function StudentManagementTab({ navigation }: Props) {
 
   const getStudentProfile = (inviteEmail: string) => students.find((s) => s.email === inviteEmail);
 
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredInvitations = invitations.filter((item) => {
+    if (!normalizedQuery) return true;
+    const studentProfile = item.status === 'registered' ? getStudentProfile(item.email) : undefined;
+    const name = studentProfile ? `${studentProfile.first_name} ${studentProfile.last_name}` : '';
+    return (
+      item.email.toLowerCase().includes(normalizedQuery) || name.toLowerCase().includes(normalizedQuery)
+    );
+  });
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -150,7 +161,6 @@ export default function StudentManagementTab({ navigation }: Props) {
           style={styles.textArea}
           placeholder={'One email per line, e.g.\njane@example.com\njohn@example.com'}
           autoCapitalize="none"
-          keyboardType="email-address"
           multiline
           numberOfLines={4}
           textAlignVertical="top"
@@ -172,8 +182,16 @@ export default function StudentManagementTab({ navigation }: Props) {
       {inviteError ? <Text style={styles.error}>{inviteError}</Text> : null}
       {inviteSummary ? <Text style={styles.summary}>{inviteSummary}</Text> : null}
 
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search by name or email"
+        autoCapitalize="none"
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+      />
+
       <FlatList
-        data={invitations}
+        data={filteredInvitations}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -185,7 +203,11 @@ export default function StudentManagementTab({ navigation }: Props) {
             }}
           />
         }
-        ListEmptyComponent={<Text style={styles.emptyText}>No invitations yet.</Text>}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>
+            {normalizedQuery ? 'No students match your search.' : 'No invitations yet.'}
+          </Text>
+        }
         renderItem={({ item }) => {
           const studentProfile =
             item.status === 'registered' ? getStudentProfile(item.email) : undefined;
@@ -248,6 +270,15 @@ const styles = StyleSheet.create({
   inviteButtonText: { color: '#fff', fontWeight: '600' },
   error: { color: '#dc2626', marginBottom: 8 },
   summary: { color: '#059669', marginBottom: 8 },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    marginBottom: 4,
+  },
   listContent: { paddingTop: 8, paddingBottom: 24 },
   emptyText: { textAlign: 'center', color: '#999', marginTop: 40 },
   row: {

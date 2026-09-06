@@ -4,14 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import AdminStudentsStack from '../../navigation/AdminStudentsStack';
 import HabitManagementTab from './tabs/HabitManagementTab';
-import RealtimeDashboardTab from './tabs/RealtimeDashboardTab';
 
-type TabKey = 'students' | 'habits' | 'dashboard';
+type TabKey = 'students' | 'habits';
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'students', label: 'Students' },
   { key: 'habits', label: 'Habits' },
-  { key: 'dashboard', label: 'Dashboard' },
 ];
 
 export default function AdminScreen() {
@@ -35,7 +33,6 @@ export default function AdminScreen() {
       <View style={styles.content}>
         {activeTab === 'students' && <AdminStudentsStack />}
         {activeTab === 'habits' && <HabitManagementTab />}
-        {activeTab === 'dashboard' && <RealtimeDashboardTab />}
       </View>
 
       <View style={styles.tabBar}>

@@ -34,7 +34,9 @@ export interface CompletionStats {
 }
 
 // Difference in whole calendar days between two "YYYY-MM-DD" strings.
-function daysBetween(laterDate: string, earlierDate: string): number {
+// Exported so other date-diffing helpers (e.g. utils/habitStats.ts) don't
+// have to duplicate this logic.
+export function daysBetween(laterDate: string, earlierDate: string): number {
   const later = new Date(`${laterDate}T00:00:00`);
   const earlier = new Date(`${earlierDate}T00:00:00`);
   return Math.round((later.getTime() - earlier.getTime()) / (1000 * 60 * 60 * 24));
