@@ -108,18 +108,21 @@ export default function SignUpScreen({ navigation }: Props) {
         <TextInput
           style={styles.input}
           placeholder="First Name"
+          placeholderTextColor="#999"
           value={firstName}
           onChangeText={setFirstName}
         />
         <TextInput
           style={styles.input}
           placeholder="Last Name"
+          placeholderTextColor="#999"
           value={lastName}
           onChangeText={setLastName}
         />
         <TextInput
           style={styles.input}
           placeholder="Email"
+          placeholderTextColor="#999"
           autoCapitalize="none"
           keyboardType="email-address"
           value={email}
@@ -128,6 +131,7 @@ export default function SignUpScreen({ navigation }: Props) {
         <TextInput
           style={styles.input}
           placeholder="Password"
+          placeholderTextColor="#999"
           secureTextEntry
           value={password}
           onChangeText={setPassword}

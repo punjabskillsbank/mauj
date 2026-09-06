@@ -160,6 +160,7 @@ export default function StudentManagementTab({ navigation }: Props) {
         <TextInput
           style={styles.textArea}
           placeholder={'One email per line, e.g.\njane@example.com\njohn@example.com'}
+          placeholderTextColor="#999"
           autoCapitalize="none"
           multiline
           numberOfLines={4}
@@ -185,6 +186,7 @@ export default function StudentManagementTab({ navigation }: Props) {
       <TextInput
         style={styles.searchInput}
         placeholder="Search by name or email"
+        placeholderTextColor="#999"
         autoCapitalize="none"
         value={searchQuery}
         onChangeText={setSearchQuery}

@@ -203,7 +203,9 @@ export default function TodayTab() {
                 <Switch
                   value={item.completed}
                   onValueChange={(value) => handleToggleBoolean(item.task.id, value)}
-                  trackColor={{ true: '#4f46e5' }}
+                  trackColor={{ false: '#e5e7eb', true: '#4f46e5' }}
+                  thumbColor="#fff"
+                  ios_backgroundColor="#e5e7eb"
                 />
               </View>
             ) : (
@@ -211,6 +213,7 @@ export default function TodayTab() {
                 <TextInput
                   style={styles.durationInput}
                   placeholder="0"
+                  placeholderTextColor="#999"
                   keyboardType="number-pad"
                   value={item.durationText}
                   onChangeText={(text) => handleDurationChange(item.task.id, text)}

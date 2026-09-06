@@ -80,6 +80,7 @@ export default function HabitManagementTab() {
         <TextInput
           style={styles.input}
           placeholder="Habit title (e.g. Drink water)"
+          placeholderTextColor="#999"
           value={title}
           onChangeText={setTitle}
         />

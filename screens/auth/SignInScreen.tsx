@@ -46,6 +46,7 @@ export default function SignInScreen({ navigation }: Props) {
       <TextInput
         style={styles.input}
         placeholder="Email"
+        placeholderTextColor="#999"
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
@@ -54,6 +55,7 @@ export default function SignInScreen({ navigation }: Props) {
       <TextInput
         style={styles.input}
         placeholder="Password"
+        placeholderTextColor="#999"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
